@@ -33,52 +33,57 @@ function proxyErrorHandler(serviceName) {
   };
 }
 
+// Match both the base route and nested paths (for example: /products and /products/1)
+function routeMatcher(basePath) {
+  return (pathname) => pathname === basePath || pathname.startsWith(`${basePath}/`);
+}
+
 // Product service proxy: localhost:3000/products -> localhost:4001/products
 app.use(
-  '/products',
   createProxyMiddleware({
     target: 'http://localhost:4001',
     changeOrigin: true,
+    pathFilter: routeMatcher('/products'),
     onError: proxyErrorHandler('Product Service')
   })
 );
 
 // User service proxy: localhost:3000/users -> localhost:4002/users
 app.use(
-  '/users',
   createProxyMiddleware({
     target: 'http://localhost:4002',
     changeOrigin: true,
+    pathFilter: routeMatcher('/users'),
     onError: proxyErrorHandler('User Service')
   })
 );
 
 // Order service proxy: localhost:3000/orders -> localhost:4003/orders
 app.use(
-  '/orders',
   createProxyMiddleware({
     target: 'http://localhost:4003',
     changeOrigin: true,
+    pathFilter: routeMatcher('/orders'),
     onError: proxyErrorHandler('Order Service')
   })
 );
 
 // Payment service proxy: localhost:3000/payments -> localhost:4004/payments
 app.use(
-  '/payments',
   createProxyMiddleware({
     target: 'http://localhost:4004',
     changeOrigin: true,
+    pathFilter: routeMatcher('/payments'),
     onError: proxyErrorHandler('Payment Service')
   })
 );
 
 // Review service proxy: localhost:3000/reviews -> localhost:4005/reviews
 app.use(
-  '/reviews',
   createProxyMiddleware({
     target: 'http://localhost:4005',
     changeOrigin: true,
+    pathFilter: routeMatcher('/reviews'),
     onError: proxyErrorHandler('Review Service')
   })
 );

@@ -3,26 +3,37 @@
  * Member: X
  *
  * Assignment notes:
- * - Uses local in-memory array (no database for now).
+ * - Uses MongoDB (with Mongoose) for persistent storage.
  * - Provides 3 required routes: GET all, POST new, GET by ID.
  * - Swagger UI is enabled for API documentation and testing.
  */
 
 const express = require('express');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
+dotenv.config();
+
 const app = express();
-const PORT = 4002;
+const PORT = 4004;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/payment_service_db';
 
 // Parse JSON bodies from incoming requests
 app.use(express.json());
 
-// Temporary in-memory payment list for assignment purposes
-const payments = [
-  { id: 1, orderId: 101, amount: 129.5, method: 'CARD', status: 'SUCCESS' },
-  { id: 2, orderId: 102, amount: 79.99, method: 'CASH', status: 'PENDING' }
-];
+const paymentSchema = new mongoose.Schema(
+  {
+    orderId: { type: Number, required: true },
+    amount: { type: Number, required: true, min: 0 },
+    method: { type: String, required: true, trim: true },
+    status: { type: String, default: 'PENDING', trim: true }
+  },
+  { timestamps: true }
+);
+
+const Payment = mongoose.model('Payment', paymentSchema);
 
 const swaggerOptions = {
   definition: {
@@ -55,7 +66,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *         description: A list of payments
  */
 app.get('/payments', (req, res) => {
-  res.status(200).json(payments);
+  Payment.find()
+    .sort({ createdAt: -1 })
+    .then((payments) => res.status(200).json(payments))
+    .catch((error) => res.status(500).json({ message: 'Failed to fetch payments.', error: error.message }));
 });
 
 /**
@@ -100,16 +114,9 @@ app.post('/payments', (req, res) => {
     return res.status(400).json({ message: 'orderId (number), amount (number), and method (string) are required.' });
   }
 
-  const newPayment = {
-    id: payments.length ? payments[payments.length - 1].id + 1 : 1,
-    orderId,
-    amount,
-    method,
-    status: status || 'PENDING'
-  };
-
-  payments.push(newPayment);
-  return res.status(201).json(newPayment);
+  Payment.create({ orderId, amount, method, status: status || 'PENDING' })
+    .then((newPayment) => res.status(201).json(newPayment))
+    .catch((error) => res.status(500).json({ message: 'Failed to create payment.', error: error.message }));
 });
 
 /**
@@ -123,7 +130,7 @@ app.post('/payments', (req, res) => {
  *         name: id
  *         required: true
  *         schema:
- *           type: integer
+ *           type: string
  *         description: Payment ID
  *     responses:
  *       200:
@@ -132,17 +139,41 @@ app.post('/payments', (req, res) => {
  *         description: Payment not found
  */
 app.get('/payments/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const payment = payments.find((item) => item.id === id);
+  const { id } = req.params;
 
-  if (!payment) {
-    return res.status(404).json({ message: 'Payment not found.' });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid payment ID format.' });
   }
 
-  return res.status(200).json(payment);
+  Payment.findById(id)
+    .then((payment) => {
+      if (!payment) {
+        return res.status(404).json({ message: 'Payment not found.' });
+      }
+
+      return res.status(200).json(payment);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to fetch payment.', error: error.message }));
 });
 
-app.listen(PORT, () => {
-  console.log(`Payment Service is running on http://localhost:${PORT}`);
-  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+app.get('/health', (req, res) => {
+  const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
+  res.status(200).json({ service: 'payment-service', status: 'UP', database: dbState });
 });
+
+async function startServer() {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log('Payment Service connected to MongoDB');
+
+    app.listen(PORT, () => {
+      console.log(`Payment Service is running on http://localhost:${PORT}`);
+      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+    });
+  } catch (error) {
+    console.error('Payment Service failed to connect to MongoDB:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();

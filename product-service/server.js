@@ -3,7 +3,7 @@
  * Member: X
  *
  * Assignment notes:
- * - This service uses a local array as temporary storage (no database).
+ * - This service now uses MongoDB (with Mongoose) for persistent storage.
  * - It includes a simple REST API with 3 routes:
  *   1) GET all products
  *   2) POST a new product
@@ -12,20 +12,30 @@
  */
 
 const express = require('express');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
+dotenv.config();
+
 const app = express();
-const PORT = 4003; // Unique port assigned from the allowed range (4001-4005)
+const PORT = 4001; // Port aligned with API Gateway mapping
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/product_service_db';
 
 // Middleware to parse incoming JSON request bodies
 app.use(express.json());
 
-// Simple in-memory array to store product data for this assignment
-const products = [
-  { id: 1, name: 'Keyboard', price: 49.99 },
-  { id: 2, name: 'Mouse', price: 19.99 }
-];
+// Product schema and model for MongoDB collection
+const productSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    price: { type: Number, required: true, min: 0 }
+  },
+  { timestamps: true }
+);
+
+const Product = mongoose.model('Product', productSchema);
 
 /**
  * Swagger/OpenAPI setup
@@ -64,7 +74,12 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *         description: A list of products
  */
 app.get('/products', (req, res) => {
-  res.status(200).json(products);
+  Product.find()
+    .sort({ createdAt: -1 })
+    .then((products) => res.status(200).json(products))
+    .catch((error) =>
+      res.status(500).json({ message: 'Failed to fetch products.', error: error.message })
+    );
 });
 
 /**
@@ -103,14 +118,11 @@ app.post('/products', (req, res) => {
     return res.status(400).json({ message: 'name (string) and price (number) are required.' });
   }
 
-  const newProduct = {
-    id: products.length ? products[products.length - 1].id + 1 : 1,
-    name,
-    price
-  };
-
-  products.push(newProduct);
-  return res.status(201).json(newProduct);
+  Product.create({ name, price })
+    .then((newProduct) => res.status(201).json(newProduct))
+    .catch((error) =>
+      res.status(500).json({ message: 'Failed to create product.', error: error.message })
+    );
 });
 
 /**
@@ -124,7 +136,7 @@ app.post('/products', (req, res) => {
  *         name: id
  *         required: true
  *         schema:
- *           type: integer
+ *           type: string
  *         description: Product ID
  *     responses:
  *       200:
@@ -133,23 +145,44 @@ app.post('/products', (req, res) => {
  *         description: Product not found
  */
 app.get('/products/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const product = products.find((item) => item.id === id);
+  const { id } = req.params;
 
-  if (!product) {
-    return res.status(404).json({ message: 'Product not found.' });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid product ID format.' });
   }
 
-  return res.status(200).json(product);
+  Product.findById(id)
+    .then((product) => {
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found.' });
+      }
+
+      return res.status(200).json(product);
+    })
+    .catch((error) =>
+      res.status(500).json({ message: 'Failed to fetch product.', error: error.message })
+    );
 });
 
-// Health endpoint to quickly verify the service is running
+// Health endpoint to quickly verify the service and database connection
 app.get('/health', (req, res) => {
-  res.status(200).json({ service: 'product-service', status: 'UP' });
+  const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
+  res.status(200).json({ service: 'product-service', status: 'UP', database: dbState });
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Product Service is running on http://localhost:${PORT}`);
-  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
-});
+async function startServer() {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log('Product Service connected to MongoDB');
+
+    app.listen(PORT, () => {
+      console.log(`Product Service is running on http://localhost:${PORT}`);
+      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+    });
+  } catch (error) {
+    console.error('Product Service failed to connect to MongoDB:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();

@@ -3,26 +3,36 @@
  * Member: X
  *
  * Assignment notes:
- * - Uses local in-memory array (no database for now).
+ * - Uses MongoDB (with Mongoose) for persistent storage.
  * - Provides 3 required routes: GET all, POST new, GET by ID.
  * - Swagger UI is enabled for API documentation and testing.
  */
 
 const express = require('express');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
+dotenv.config();
+
 const app = express();
-const PORT = 4001;
+const PORT = 4003;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/order_service_db';
 
 // Parse JSON bodies from incoming requests
 app.use(express.json());
 
-// Temporary in-memory order list for assignment purposes
-const orders = [
-  { id: 1, customerName: 'Alice', totalAmount: 129.5, status: 'PENDING' },
-  { id: 2, customerName: 'Bob', totalAmount: 79.99, status: 'CONFIRMED' }
-];
+const orderSchema = new mongoose.Schema(
+  {
+    customerName: { type: String, required: true, trim: true },
+    totalAmount: { type: Number, required: true, min: 0 },
+    status: { type: String, default: 'PENDING', trim: true }
+  },
+  { timestamps: true }
+);
+
+const Order = mongoose.model('Order', orderSchema);
 
 const swaggerOptions = {
   definition: {
@@ -55,7 +65,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *         description: A list of orders
  */
 app.get('/orders', (req, res) => {
-  res.status(200).json(orders);
+  Order.find()
+    .sort({ createdAt: -1 })
+    .then((orders) => res.status(200).json(orders))
+    .catch((error) => res.status(500).json({ message: 'Failed to fetch orders.', error: error.message }));
 });
 
 /**
@@ -96,15 +109,9 @@ app.post('/orders', (req, res) => {
     return res.status(400).json({ message: 'customerName (string) and totalAmount (number) are required.' });
   }
 
-  const newOrder = {
-    id: orders.length ? orders[orders.length - 1].id + 1 : 1,
-    customerName,
-    totalAmount,
-    status: status || 'PENDING'
-  };
-
-  orders.push(newOrder);
-  return res.status(201).json(newOrder);
+  Order.create({ customerName, totalAmount, status: status || 'PENDING' })
+    .then((newOrder) => res.status(201).json(newOrder))
+    .catch((error) => res.status(500).json({ message: 'Failed to create order.', error: error.message }));
 });
 
 /**
@@ -118,7 +125,7 @@ app.post('/orders', (req, res) => {
  *         name: id
  *         required: true
  *         schema:
- *           type: integer
+ *           type: string
  *         description: Order ID
  *     responses:
  *       200:
@@ -127,17 +134,41 @@ app.post('/orders', (req, res) => {
  *         description: Order not found
  */
 app.get('/orders/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const order = orders.find((item) => item.id === id);
+  const { id } = req.params;
 
-  if (!order) {
-    return res.status(404).json({ message: 'Order not found.' });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid order ID format.' });
   }
 
-  return res.status(200).json(order);
+  Order.findById(id)
+    .then((order) => {
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found.' });
+      }
+
+      return res.status(200).json(order);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to fetch order.', error: error.message }));
 });
 
-app.listen(PORT, () => {
-  console.log(`Order Service is running on http://localhost:${PORT}`);
-  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+app.get('/health', (req, res) => {
+  const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
+  res.status(200).json({ service: 'order-service', status: 'UP', database: dbState });
 });
+
+async function startServer() {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log('Order Service connected to MongoDB');
+
+    app.listen(PORT, () => {
+      console.log(`Order Service is running on http://localhost:${PORT}`);
+      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+    });
+  } catch (error) {
+    console.error('Order Service failed to connect to MongoDB:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();

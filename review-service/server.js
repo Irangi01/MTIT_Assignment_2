@@ -3,26 +3,37 @@
  * Member: X
  *
  * Assignment notes:
- * - Uses local in-memory array (no database for now).
+ * - Uses MongoDB (with Mongoose) for persistent storage.
  * - Provides 3 required routes: GET all, POST new, GET by ID.
  * - Swagger UI is enabled for API documentation and testing.
  */
 
 const express = require('express');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
+dotenv.config();
+
 const app = express();
-const PORT = 4004;
+const PORT = 4005;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/review_service_db';
 
 // Parse JSON bodies from incoming requests
 app.use(express.json());
 
-// Temporary in-memory review list for assignment purposes
-const reviews = [
-  { id: 1, productId: 1, reviewerName: 'Nimal', rating: 4, comment: 'Good quality' },
-  { id: 2, productId: 2, reviewerName: 'Sahan', rating: 5, comment: 'Excellent product' }
-];
+const reviewSchema = new mongoose.Schema(
+  {
+    productId: { type: Number, required: true },
+    reviewerName: { type: String, required: true, trim: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    comment: { type: String, default: '', trim: true }
+  },
+  { timestamps: true }
+);
+
+const Review = mongoose.model('Review', reviewSchema);
 
 const swaggerOptions = {
   definition: {
@@ -55,7 +66,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *         description: A list of reviews
  */
 app.get('/reviews', (req, res) => {
-  res.status(200).json(reviews);
+  Review.find()
+    .sort({ createdAt: -1 })
+    .then((reviews) => res.status(200).json(reviews))
+    .catch((error) => res.status(500).json({ message: 'Failed to fetch reviews.', error: error.message }));
 });
 
 /**
@@ -100,16 +114,9 @@ app.post('/reviews', (req, res) => {
     return res.status(400).json({ message: 'productId (number), reviewerName (string), and rating (number) are required.' });
   }
 
-  const newReview = {
-    id: reviews.length ? reviews[reviews.length - 1].id + 1 : 1,
-    productId,
-    reviewerName,
-    rating,
-    comment: comment || ''
-  };
-
-  reviews.push(newReview);
-  return res.status(201).json(newReview);
+  Review.create({ productId, reviewerName, rating, comment: comment || '' })
+    .then((newReview) => res.status(201).json(newReview))
+    .catch((error) => res.status(500).json({ message: 'Failed to create review.', error: error.message }));
 });
 
 /**
@@ -123,7 +130,7 @@ app.post('/reviews', (req, res) => {
  *         name: id
  *         required: true
  *         schema:
- *           type: integer
+ *           type: string
  *         description: Review ID
  *     responses:
  *       200:
@@ -132,17 +139,41 @@ app.post('/reviews', (req, res) => {
  *         description: Review not found
  */
 app.get('/reviews/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const review = reviews.find((item) => item.id === id);
+  const { id } = req.params;
 
-  if (!review) {
-    return res.status(404).json({ message: 'Review not found.' });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid review ID format.' });
   }
 
-  return res.status(200).json(review);
+  Review.findById(id)
+    .then((review) => {
+      if (!review) {
+        return res.status(404).json({ message: 'Review not found.' });
+      }
+
+      return res.status(200).json(review);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to fetch review.', error: error.message }));
 });
 
-app.listen(PORT, () => {
-  console.log(`Review Service is running on http://localhost:${PORT}`);
-  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+app.get('/health', (req, res) => {
+  const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
+  res.status(200).json({ service: 'review-service', status: 'UP', database: dbState });
 });
+
+async function startServer() {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log('Review Service connected to MongoDB');
+
+    app.listen(PORT, () => {
+      console.log(`Review Service is running on http://localhost:${PORT}`);
+      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+    });
+  } catch (error) {
+    console.error('Review Service failed to connect to MongoDB:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
