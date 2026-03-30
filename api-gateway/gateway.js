@@ -35,7 +35,11 @@ function proxyErrorHandler(serviceName) {
 
 // Match both the base route and nested paths (for example: /products and /products/1)
 function routeMatcher(basePath) {
-  return (pathname) => pathname === basePath || pathname.startsWith(`${basePath}/`);
+  return (pathname, req) => {
+    const pathMatch = pathname === basePath || pathname.startsWith(`${basePath}/`);
+    const methodMatch = ['GET', 'POST', 'PUT', 'DELETE'].includes(req.method);
+    return pathMatch && methodMatch;
+  };
 }
 
 // Product service proxy: localhost:3000/products -> localhost:4001/products

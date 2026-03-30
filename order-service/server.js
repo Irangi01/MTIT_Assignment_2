@@ -151,6 +151,93 @@ app.get('/orders/:id', (req, res) => {
     .catch((error) => res.status(500).json({ message: 'Failed to fetch order.', error: error.message }));
 });
 
+/**
+ * @swagger
+ * /orders/{id}:
+ *   put:
+ *     summary: Update an order by ID
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               customerName:
+ *                 type: string
+ *               totalAmount:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Order updated successfully
+ *       404:
+ *         description: Order not found
+ */
+app.put('/orders/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid order ID format.' });
+  }
+
+  Order.findByIdAndUpdate(id, req.body, { new: true })
+    .then((order) => {
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found.' });
+      }
+
+      return res.status(200).json(order);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to update order.', error: error.message }));
+});
+
+/**
+ * @swagger
+ * /orders/{id}:
+ *   delete:
+ *     summary: Delete an order by ID
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order deleted successfully
+ *       404:
+ *         description: Order not found
+ */
+app.delete('/orders/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid order ID format.' });
+  }
+
+  Order.findByIdAndDelete(id)
+    .then((order) => {
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found.' });
+      }
+
+      return res.status(200).json({ message: 'Order deleted successfully.' });
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to delete order.', error: error.message }));
+});
+
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
   res.status(200).json({ service: 'order-service', status: 'UP', database: dbState });

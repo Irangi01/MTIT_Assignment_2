@@ -164,6 +164,95 @@ app.get('/products/:id', (req, res) => {
     );
 });
 
+/**
+ * @swagger
+ * /products/{id}:
+ *   put:
+ *     summary: Update a product by ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Product updated successfully
+ *       404:
+ *         description: Product not found
+ */
+app.put('/products/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid product ID format.' });
+  }
+
+  Product.findByIdAndUpdate(id, req.body, { new: true })
+    .then((product) => {
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found.' });
+      }
+
+      return res.status(200).json(product);
+    })
+    .catch((error) =>
+      res.status(500).json({ message: 'Failed to update product.', error: error.message })
+    );
+});
+
+/**
+ * @swagger
+ * /products/{id}:
+ *   delete:
+ *     summary: Delete a product by ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *       404:
+ *         description: Product not found
+ */
+app.delete('/products/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid product ID format.' });
+  }
+
+  Product.findByIdAndDelete(id)
+    .then((product) => {
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found.' });
+      }
+
+      return res.status(200).json({ message: 'Product deleted successfully.' });
+    })
+    .catch((error) =>
+      res.status(500).json({ message: 'Failed to delete product.', error: error.message })
+    );
+});
+
 // Health endpoint to quickly verify the service and database connection
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';

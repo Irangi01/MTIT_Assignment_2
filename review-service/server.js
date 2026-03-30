@@ -156,6 +156,95 @@ app.get('/reviews/:id', (req, res) => {
     .catch((error) => res.status(500).json({ message: 'Failed to fetch review.', error: error.message }));
 });
 
+/**
+ * @swagger
+ * /reviews/{id}:
+ *   put:
+ *     summary: Update a review by ID
+ *     tags: [Reviews]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Review ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               productId:
+ *                 type: integer
+ *               reviewerName:
+ *                 type: string
+ *               rating:
+ *                 type: integer
+ *               comment:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ *       404:
+ *         description: Review not found
+ */
+app.put('/reviews/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid review ID format.' });
+  }
+
+  Review.findByIdAndUpdate(id, req.body, { new: true })
+    .then((review) => {
+      if (!review) {
+        return res.status(404).json({ message: 'Review not found.' });
+      }
+
+      return res.status(200).json(review);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to update review.', error: error.message }));
+});
+
+/**
+ * @swagger
+ * /reviews/{id}:
+ *   delete:
+ *     summary: Delete a review by ID
+ *     tags: [Reviews]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Review ID
+ *     responses:
+ *       200:
+ *         description: Review deleted successfully
+ *       404:
+ *         description: Review not found
+ */
+app.delete('/reviews/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid review ID format.' });
+  }
+
+  Review.findByIdAndDelete(id)
+    .then((review) => {
+      if (!review) {
+        return res.status(404).json({ message: 'Review not found.' });
+      }
+
+      return res.status(200).json({ message: 'Review deleted successfully.' });
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to delete review.', error: error.message }));
+});
+
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
   res.status(200).json({ service: 'review-service', status: 'UP', database: dbState });

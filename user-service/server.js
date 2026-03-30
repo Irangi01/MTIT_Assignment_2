@@ -147,6 +147,91 @@ app.get('/users/:id', (req, res) => {
     .catch((error) => res.status(500).json({ message: 'Failed to fetch user.', error: error.message }));
 });
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Update a user by ID
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       404:
+ *         description: User not found
+ */
+app.put('/users/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid user ID format.' });
+  }
+
+  User.findByIdAndUpdate(id, req.body, { new: true })
+    .then((user) => {
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      return res.status(200).json(user);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to update user.', error: error.message }));
+});
+
+/**
+ * @swagger
+ * /users/{id}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *       404:
+ *         description: User not found
+ */
+app.delete('/users/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid user ID format.' });
+  }
+
+  User.findByIdAndDelete(id)
+    .then((user) => {
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      return res.status(200).json({ message: 'User deleted successfully.' });
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to delete user.', error: error.message }));
+});
+
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
   res.status(200).json({ service: 'user-service', status: 'UP', database: dbState });
