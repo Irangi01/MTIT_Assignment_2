@@ -156,6 +156,95 @@ app.get('/payments/:id', (req, res) => {
     .catch((error) => res.status(500).json({ message: 'Failed to fetch payment.', error: error.message }));
 });
 
+/**
+ * @swagger
+ * /payments/{id}:
+ *   put:
+ *     summary: Update a payment by ID
+ *     tags: [Payments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Payment ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderId:
+ *                 type: integer
+ *               amount:
+ *                 type: number
+ *               method:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Payment updated successfully
+ *       404:
+ *         description: Payment not found
+ */
+app.put('/payments/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid payment ID format.' });
+  }
+
+  Payment.findByIdAndUpdate(id, req.body, { new: true })
+    .then((payment) => {
+      if (!payment) {
+        return res.status(404).json({ message: 'Payment not found.' });
+      }
+
+      return res.status(200).json(payment);
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to update payment.', error: error.message }));
+});
+
+/**
+ * @swagger
+ * /payments/{id}:
+ *   delete:
+ *     summary: Delete a payment by ID
+ *     tags: [Payments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Payment ID
+ *     responses:
+ *       200:
+ *         description: Payment deleted successfully
+ *       404:
+ *         description: Payment not found
+ */
+app.delete('/payments/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid payment ID format.' });
+  }
+
+  Payment.findByIdAndDelete(id)
+    .then((payment) => {
+      if (!payment) {
+        return res.status(404).json({ message: 'Payment not found.' });
+      }
+
+      return res.status(200).json({ message: 'Payment deleted successfully.' });
+    })
+    .catch((error) => res.status(500).json({ message: 'Failed to delete payment.', error: error.message }));
+});
+
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
   res.status(200).json({ service: 'payment-service', status: 'UP', database: dbState });
