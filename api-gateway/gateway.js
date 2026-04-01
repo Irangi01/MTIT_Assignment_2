@@ -19,7 +19,8 @@ const swaggerUi = require('swagger-ui-express');
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+// Minimal middleware - let proxy handle everything natively
+// No body parsing needed; proxy passes raw streams
 
 // Swagger/OpenAPI setup
 const swaggerOptions = {
@@ -77,12 +78,49 @@ function routeMatcher(basePath) {
  *     responses:
  *       200:
  *         description: List of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   price:
+ *                     type: number
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
  *   post:
  *     summary: Create a new product
  *     tags: [Products]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - price
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Headphones
+ *               price:
+ *                 type: number
+ *                 example: 59.99
  *     responses:
  *       201:
  *         description: Product created
+ *       400:
+ *         description: Invalid request body
  * /products/{id}:
  *   get:
  *     summary: Get product by ID
@@ -93,6 +131,28 @@ function routeMatcher(basePath) {
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Product found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 price:
+ *                   type: number
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Product not found
  *   put:
  *     summary: Update product by ID
  *     tags: [Products]
@@ -102,6 +162,22 @@ function routeMatcher(basePath) {
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Product updated
+ *       400:
+ *         description: Invalid request body
  *   delete:
  *     summary: Delete product by ID
  *     tags: [Products]
@@ -111,6 +187,18 @@ function routeMatcher(basePath) {
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Product deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Product not found
  */
 // Product service proxy: localhost:3000/products -> localhost:4001/products
 app.use(
@@ -131,12 +219,38 @@ app.use(
  *     responses:
  *       200:
  *         description: List of users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
  *   post:
  *     summary: Create a new user
  *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
  *     responses:
  *       201:
  *         description: User created
+ *       400:
+ *         description: Invalid request body
  * /users/{id}:
  *   get:
  *     summary: Get user by ID
@@ -147,6 +261,22 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: User found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *       404:
+ *         description: User not found
  *   put:
  *     summary: Update user by ID
  *     tags: [Users]
@@ -156,6 +286,33 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *       400:
+ *         description: Invalid request body
  *   delete:
  *     summary: Delete user by ID
  *     tags: [Users]
@@ -165,6 +322,18 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: User deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: User not found
  */
 // User service proxy: localhost:3000/users -> localhost:4002/users
 app.use(
@@ -185,12 +354,46 @@ app.use(
  *     responses:
  *       200:
  *         description: List of orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   customerName:
+ *                     type: string
+ *                   totalAmount:
+ *                     type: number
+ *                   status:
+ *                     type: string
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
  *   post:
  *     summary: Create a new order
  *     tags: [Orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *               items:
+ *                 type: array
  *     responses:
  *       201:
  *         description: Order created
+ *       400:
+ *         description: Invalid request body
  * /orders/{id}:
  *   get:
  *     summary: Get order by ID
@@ -201,6 +404,30 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Order found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 customerName:
+ *                   type: string
+ *                 totalAmount:
+ *                   type: number
+ *                 status:
+ *                   type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Order not found
  *   put:
  *     summary: Update order by ID
  *     tags: [Orders]
@@ -210,6 +437,35 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *               items:
+ *                 type: array
+ *     responses:
+ *       200:
+ *         description: Order updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 customerName:
+ *                   type: string
+ *                 totalAmount:
+ *                   type: number
+ *                 status:
+ *                   type: string
+ *       400:
+ *         description: Invalid request body
  *   delete:
  *     summary: Delete order by ID
  *     tags: [Orders]
@@ -219,6 +475,18 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Order deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Order not found
  */
 // Order service proxy: localhost:3000/orders -> localhost:4003/orders
 app.use(
@@ -239,12 +507,48 @@ app.use(
  *     responses:
  *       200:
  *         description: List of payments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   orderId:
+ *                     type: number
+ *                   amount:
+ *                     type: number
+ *                   method:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
  *   post:
  *     summary: Create a new payment
  *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *               amount:
+ *                 type: number
  *     responses:
  *       201:
  *         description: Payment created
+ *       400:
+ *         description: Invalid request body
  * /payments/{id}:
  *   get:
  *     summary: Get payment by ID
@@ -255,6 +559,32 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 orderId:
+ *                   type: number
+ *                 amount:
+ *                   type: number
+ *                 method:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Payment not found
  *   put:
  *     summary: Update payment by ID
  *     tags: [Payments]
@@ -264,6 +594,37 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Payment updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 orderId:
+ *                   type: number
+ *                 amount:
+ *                   type: number
+ *                 method:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *       400:
+ *         description: Invalid request body
  *   delete:
  *     summary: Delete payment by ID
  *     tags: [Payments]
@@ -273,6 +634,18 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Payment not found
  */
 // Payment service proxy: localhost:3000/payments -> localhost:4004/payments
 app.use(
@@ -293,12 +666,50 @@ app.use(
  *     responses:
  *       200:
  *         description: List of reviews
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   productId:
+ *                     type: number
+ *                   reviewerName:
+ *                     type: string
+ *                   rating:
+ *                     type: number
+ *                   comment:
+ *                     type: string
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
  *   post:
  *     summary: Create a new review
  *     tags: [Reviews]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               productId:
+ *                 type: string
+ *               rating:
+ *                 type: number
+ *               comment:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Review created
+ *       400:
+ *         description: Invalid request body
  * /reviews/{id}:
  *   get:
  *     summary: Get review by ID
@@ -309,6 +720,32 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Review found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 productId:
+ *                   type: number
+ *                 reviewerName:
+ *                   type: string
+ *                 rating:
+ *                   type: number
+ *                 comment:
+ *                   type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Review not found
  *   put:
  *     summary: Update review by ID
  *     tags: [Reviews]
@@ -318,6 +755,39 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               productId:
+ *                 type: string
+ *               rating:
+ *                 type: number
+ *               comment:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 productId:
+ *                   type: number
+ *                 reviewerName:
+ *                   type: string
+ *                 rating:
+ *                   type: number
+ *                 comment:
+ *                   type: string
+ *       400:
+ *         description: Invalid request body
  *   delete:
  *     summary: Delete review by ID
  *     tags: [Reviews]
@@ -327,6 +797,18 @@ app.use(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Review deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Review not found
  */
 // Review service proxy: localhost:3000/reviews -> localhost:4005/reviews
 app.use(
