@@ -1,11 +1,14 @@
 /**
  * E-Commerce Microservice - User Service
- * Member: X
+ * Member: IT22290960
  *
- * Assignment notes:
- * - Uses MongoDB (with Mongoose) for persistent storage.
- * - Provides 3 required routes: GET all, POST new, GET by ID.
- * - Swagger UI is enabled for API documentation and testing.
+ * Port: 4002
+ * Features:
+ * - MongoDB with Mongoose for persistent storage
+ * - MVC pattern: Validators, Controllers, Routes in separate files
+ * - Full CRUD operations (GET all, GET by ID, POST, PUT, DELETE)
+ * - Swagger/OpenAPI documentation
+ * - Input validation for all endpoints
  */
 
 const express = require('express');
@@ -13,6 +16,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const createUserRoutes = require('./routes/userRoutes');
 
 dotenv.config();
 
@@ -20,7 +24,7 @@ const app = express();
 const PORT = 4002;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/user_service_db';
 
-// Parse JSON bodies from incoming requests
+// Middleware
 app.use(express.json());
 
 const userSchema = new mongoose.Schema(
@@ -47,190 +51,14 @@ const swaggerOptions = {
       }
     ]
   },
-  apis: [__filename]
+  apis: ['./routes/userRoutes.js']
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-/**
- * @swagger
- * /users:
- *   get:
- *     summary: Get all users
- *     tags: [Users]
- *     responses:
- *       200:
- *         description: A list of users
- */
-app.get('/users', (req, res) => {
-  User.find()
-    .sort({ createdAt: -1 })
-    .then((users) => res.status(200).json(users))
-    .catch((error) => res.status(500).json({ message: 'Failed to fetch users.', error: error.message }));
-});
-
-/**
- * @swagger
- * /users:
- *   post:
- *     summary: Create a new user
- *     tags: [Users]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - email
- *             properties:
- *               name:
- *                 type: string
- *                 example: Kasun
- *               email:
- *                 type: string
- *                 example: kasun@example.com
- *     responses:
- *       201:
- *         description: User created successfully
- *       400:
- *         description: Invalid request body
- */
-app.post('/users', (req, res) => {
-  const { name, email } = req.body;
-
-  if (!name || !email) {
-    return res.status(400).json({ message: 'name (string) and email (string) are required.' });
-  }
-
-  User.create({ name, email })
-    .then((newUser) => res.status(201).json(newUser))
-    .catch((error) => res.status(500).json({ message: 'Failed to create user.', error: error.message }));
-});
-
-/**
- * @swagger
- * /users/{id}:
- *   get:
- *     summary: Get a user by ID
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User found
- *       404:
- *         description: User not found
- */
-app.get('/users/:id', (req, res) => {
-  const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'Invalid user ID format.' });
-  }
-
-  User.findById(id)
-    .then((user) => {
-      if (!user) {
-        return res.status(404).json({ message: 'User not found.' });
-      }
-
-      return res.status(200).json(user);
-    })
-    .catch((error) => res.status(500).json({ message: 'Failed to fetch user.', error: error.message }));
-});
-
-/**
- * @swagger
- * /users/{id}:
- *   put:
- *     summary: Update a user by ID
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *     responses:
- *       200:
- *         description: User updated successfully
- *       404:
- *         description: User not found
- */
-app.put('/users/:id', (req, res) => {
-  const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'Invalid user ID format.' });
-  }
-
-  User.findByIdAndUpdate(id, req.body, { new: true })
-    .then((user) => {
-      if (!user) {
-        return res.status(404).json({ message: 'User not found.' });
-      }
-
-      return res.status(200).json(user);
-    })
-    .catch((error) => res.status(500).json({ message: 'Failed to update user.', error: error.message }));
-});
-
-/**
- * @swagger
- * /users/{id}:
- *   delete:
- *     summary: Delete a user by ID
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User deleted successfully
- *       404:
- *         description: User not found
- */
-app.delete('/users/:id', (req, res) => {
-  const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'Invalid user ID format.' });
-  }
-
-  User.findByIdAndDelete(id)
-    .then((user) => {
-      if (!user) {
-        return res.status(404).json({ message: 'User not found.' });
-      }
-
-      return res.status(200).json({ message: 'User deleted successfully.' });
-    })
-    .catch((error) => res.status(500).json({ message: 'Failed to delete user.', error: error.message }));
-});
+// Register User routes
+app.use(createUserRoutes(User));
 
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
